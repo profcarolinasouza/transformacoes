@@ -2,15 +2,19 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
     <title>WebAR - Laboratório de Transformações</title>
     
-    <!-- Scripts robustos e com versões perfeitamente compatíveis entre si -->
+    <!-- Core estável do A-Frame e AR.js -->
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #000; }
+        
+        /* Força o container do AR.js a ocupar a tela inteira sem distorcer nativamente */
+        .a-canvas { width: 100% !important; height: 100% !important; top: 0 !important; left: 0 !important; }
+        
         .ui-aluno {
             position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
             z-index: 999; background: rgba(0, 0, 0, 0.85); color: #fff;
@@ -24,74 +28,73 @@
 
 <body style="margin: 0px; overflow: hidden;">
 
-    <!-- Interface Dinâmica de Orientações -->
     <div id="instrucoes" class="ui-aluno">
-        Aponte a câmera para um dos marcadores impressos para analisar o fenômeno.
+        Iniciando câmera e calibração de tela...
     </div>
 
-    <!-- CENA AR.JS CORRIGIDA: 
-         Injetamos explicitamente o motor de busca mono_and_matrix e o padrão 3x3 na inicialização do sistema -->
+    <!-- CENA AR.JS RECONFIGURADA: 
+         Desativamos os ajustes automáticos agressivos que quebravam o layout mobile -->
     <a-scene embedded 
              arjs="sourceType: webcam; 
                    detectionMode: mono_and_matrix; 
                    matrixCodeType: 3x3; 
-                   debugUIEnabled: false;"
+                   debugUIEnabled: false;
+                   displayWidth: 1280;
+                   displayHeight: 720;
+                   canvasWidth: 1280;
+                   canvasHeight: 720;"
              vr-mode-ui="enabled: false">
 
-        <!-- Repositório de Mídias (Imagens HD Otimizadas para WebAR) -->
         <a-assets>
-            <!-- Amostras visuais claras para dedução dos estudantes -->
             <img id="materia_01" src="https://images.unsplash.com/photo-1545048702-79362596cdc9?auto=format&fit=crop&w=500&q=80">
             <img id="materia_02" src="https://images.unsplash.com/photo-1516655853565-5fef6070fa56?auto=format&fit=crop&w=500&q=80">
             <img id="materia_03" src="https://images.unsplash.com/photo-1610474665420-a6813295b9cb?auto=format&fit=crop&w=500&q=80">
         </a-assets>
 
-        <!-- MARCADOR 1: Chaleira em ebulição (Código 001) -->
+        <!-- Marcadores Vinculados ao seu PDF de Barcodes -->
         <a-marker type="barcode" value="1" id="marcador-1">
-            <a-image src="#materia_01" 
-                     rotation="-90 0 0" 
-                     position="0 0.1 0" 
-                     scale="1.5 1.5 1.5">
-            </a-image>
+            <a-image src="#materia_01" rotation="-90 0 0" position="0 0.1 0" scale="1.5 1.5 1.5"></a-image>
         </a-marker>
 
-        <!-- MARCADOR 2: Gelo derretendo (Código 002) -->
         <a-marker type="barcode" value="2" id="marcador-2">
-            <a-image src="#materia_02" 
-                     rotation="-90 0 0" 
-                     position="0 0.1 0" 
-                     scale="1.5 1.5 1.5">
-            </a-image>
+            <a-image src="#materia_02" rotation="-90 0 0" position="0 0.1 0" scale="1.5 1.5 1.5"></a-image>
         </a-marker>
 
-        <!-- MARCADOR 3: Copo com fumaça de gelo seco (Código 003) -->
         <a-marker type="barcode" value="3" id="marcador-3">
-            <a-image src="#materia_03" 
-                     rotation="-90 0 0" 
-                     position="0 0.1 0" 
-                     scale="1.5 1.5 1.5">
-            </a-image>
+            <a-image src="#materia_03" rotation="-90 0 0" position="0 0.1 0" scale="1.5 1.5 1.5"></a-image>
         </a-marker>
 
-        <!-- Entidade de câmera padrão para projeção dos elementos virtuais -->
         <a-entity camera></a-entity>
     </a-scene>
 
     <script>
-        // Lógica complementar para guiar o aluno e atualizar a interface sem revelar as respostas
         const caixaTexto = document.getElementById("instrucoes");
-        
+
+        // Tratamento de Inicialização e Redimensionamento Forçado contra Tela Preta
+        window.addEventListener('camera-init', (data) => {
+            caixaTexto.innerText = "Câmera calibrada! Aponte para um marcador para analisar o fenômeno.";
+            setTimeout(() => {
+                // Força um redimensionamento artificial após a inicialização para reajustar telas cortadas
+                window.dispatchEvent(new Event('resize'));
+            }, 500);
+        });
+
+        window.addEventListener('camera-error', (error) => {
+            caixaTexto.innerText = "Erro de permissão: Por favor, autorize o acesso à câmera e recarregue a página.";
+            console.error(error);
+        });
+
+        // Eventos de Descoberta Pedagógica para os alunos
         document.getElementById("marcador-1").addEventListener("markerFound", () => {
-            caixaTexto.innerText = "Código 001 Detectado: O que acontece quando fornecemos calor a este sistema?";
+            caixaTexto.innerText = "Código 001 Ativo: O que acontece quando fornecemos energia a este sistema?";
         });
         document.getElementById("marcador-2").addEventListener("markerFound", () => {
-            caixaTexto.innerText = "Código 002 Detectado: Observe a alteração física que ocorre no sólido.";
+            caixaTexto.innerText = "Código 002 Ativo: Observe o comportamento molecular que ocorre no sólido.";
         });
         document.getElementById("marcador-3").addEventListener("markerFound", () => {
-            caixaTexto.innerText = "Código 003 Detectado: Analise a fumaça. Houve passagem pelo estado líquido?";
+            caixaTexto.innerText = "Código 003 Ativo: Analise a fumaça. Houve passagem pelo estado líquido?";
         });
         
-        // Retorna a instrução inicial se afastar o marcador
         const limparMensagem = () => {
             caixaTexto.innerText = "Aponte a câmera para um dos marcadores impressos para analisar o fenômeno.";
         };
