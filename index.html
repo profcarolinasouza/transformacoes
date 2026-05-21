@@ -2,106 +2,145 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-    <title>WebAR - Laboratório de Transformações</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Laboratório de Ciências - Realidade Aumentada</title>
     
-    <!-- Core estável do A-Frame e AR.js -->
-    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
-    
+    <!-- Biblioteca leve e ultra otimizada para leitura de códigos no iPhone/Android -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #000; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #000; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         
-        /* Força o container do AR.js a ocupar a tela inteira sem distorcer nativamente */
-        .a-canvas { width: 100% !important; height: 100% !important; top: 0 !important; left: 0 !important; }
+        /* Câmera real ocupando a tela inteira */
+        #leitor-camera { width: 100vw; height: 100vh; object-fit: cover; }
         
+        /* Interface de orientação para o estudante */
         .ui-aluno {
-            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-            z-index: 999; background: rgba(0, 0, 0, 0.85); color: #fff;
-            padding: 15px 30px; border-radius: 25px; text-align: center;
-            font-family: sans-serif; font-size: 15px; width: 80%; max-width: 450px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5); pointer-events: none;
-            border: 1px solid rgba(255,255,255,0.1);
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            z-index: 10; background: rgba(0, 0, 0, 0.85); color: #fff;
+            padding: 15px 25px; border-radius: 30px; text-align: center;
+            font-size: 15px; width: 85%; max-width: 450px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4); pointer-events: none;
+            border: 1px solid rgba(255,255,255,0.1); transition: all 0.3s ease;
+        }
+
+        /* Camada que exibe a imagem sobreposta (Efeito RA) */
+        #container-ra {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            z-index: 5; pointer-events: none; display: none; text-align: center; width: 80%; max-width: 400px;
+        }
+
+        #imagem-materia {
+            width: 100%; height: auto; border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+            border: 3px solid #fff;
+            animation: flutuar 3000ms ease-in-out infinite alternate;
+        }
+
+        @keyframes flutuar {
+            from { transform: translateY(0px); }
+            to { transform: translateY(-15px); }
         }
     </style>
 </head>
+<body>
 
-<body style="margin: 0px; overflow: hidden;">
+    <!-- Visualizador de Vídeo Nativo -->
+    <div id="leitor-camera"></div>
 
-    <div id="instrucoes" class="ui-aluno">
-        Iniciando câmera e calibração de tela...
+    <!-- Projeção da Imagem do Fenômeno -->
+    <div id="container-ra">
+        <img id="imagem-materia" src="" alt="Fenômeno Químico">
     </div>
 
-    <!-- CENA AR.JS RECONFIGURADA: 
-         Desativamos os ajustes automáticos agressivos que quebravam o layout mobile -->
-    <a-scene embedded 
-             arjs="sourceType: webcam; 
-                   detectionMode: mono_and_matrix; 
-                   matrixCodeType: 3x3; 
-                   debugUIEnabled: false;
-                   displayWidth: 1280;
-                   displayHeight: 720;
-                   canvasWidth: 1280;
-                   canvasHeight: 720;"
-             vr-mode-ui="enabled: false">
-
-        <a-assets>
-            <img id="materia_01" src="https://images.unsplash.com/photo-1545048702-79362596cdc9?auto=format&fit=crop&w=500&q=80">
-            <img id="materia_02" src="https://images.unsplash.com/photo-1516655853565-5fef6070fa56?auto=format&fit=crop&w=500&q=80">
-            <img id="materia_03" src="https://images.unsplash.com/photo-1610474665420-a6813295b9cb?auto=format&fit=crop&w=500&q=80">
-        </a-assets>
-
-        <!-- Marcadores Vinculados ao seu PDF de Barcodes -->
-        <a-marker type="barcode" value="1" id="marcador-1">
-            <a-image src="#materia_01" rotation="-90 0 0" position="0 0.1 0" scale="1.5 1.5 1.5"></a-image>
-        </a-marker>
-
-        <a-marker type="barcode" value="2" id="marcador-2">
-            <a-image src="#materia_02" rotation="-90 0 0" position="0 0.1 0" scale="1.5 1.5 1.5"></a-image>
-        </a-marker>
-
-        <a-marker type="barcode" value="3" id="marcador-3">
-            <a-image src="#materia_03" rotation="-90 0 0" position="0 0.1 0" scale="1.5 1.5 1.5"></a-image>
-        </a-marker>
-
-        <a-entity camera></a-entity>
-    </a-scene>
+    <!-- Caixa de Texto Dinâmica -->
+    <div id="instrucoes" class="ui-aluno">
+        Aguardando permissão da câmera...
+    </div>
 
     <script>
         const caixaTexto = document.getElementById("instrucoes");
-
-        // Tratamento de Inicialização e Redimensionamento Forçado contra Tela Preta
-        window.addEventListener('camera-init', (data) => {
-            caixaTexto.innerText = "Câmera calibrada! Aponte para um marcador para analisar o fenômeno.";
-            setTimeout(() => {
-                // Força um redimensionamento artificial após a inicialização para reajustar telas cortadas
-                window.dispatchEvent(new Event('resize'));
-            }, 500);
-        });
-
-        window.addEventListener('camera-error', (error) => {
-            caixaTexto.innerText = "Erro de permissão: Por favor, autorize o acesso à câmera e recarregue a página.";
-            console.error(error);
-        });
-
-        // Eventos de Descoberta Pedagógica para os alunos
-        document.getElementById("marcador-1").addEventListener("markerFound", () => {
-            caixaTexto.innerText = "Código 001 Ativo: O que acontece quando fornecemos energia a este sistema?";
-        });
-        document.getElementById("marcador-2").addEventListener("markerFound", () => {
-            caixaTexto.innerText = "Código 002 Ativo: Observe o comportamento molecular que ocorre no sólido.";
-        });
-        document.getElementById("marcador-3").addEventListener("markerFound", () => {
-            caixaTexto.innerText = "Código 003 Ativo: Analise a fumaça. Houve passagem pelo estado líquido?";
-        });
+        const containerRA = document.getElementById("container-ra");
+        const imagemMateria = document.getElementById("imagem-materia");
         
-        const limparMensagem = () => {
-            caixaTexto.innerText = "Aponte a câmera para um dos marcadores impressos para analisar o fenômeno.";
+        let ultimoCodigoLeitura = null;
+        let timeoutLimpar = null;
+
+        // Mapeamento prático das imagens (Links HD estáveis do Unsplash)
+        const bancoImagens = {
+            "materia_01": "https://images.unsplash.com/photo-1545048702-79362596cdc9?auto=format&fit=crop&w=600&q=80", // Chaleira fervendo
+            "materia_02": "https://images.unsplash.com/photo-1516655853565-5fef6070fa56?auto=format&fit=crop&w=600&q=80", // Gelo derretendo
+            "materia_03": "https://images.unsplash.com/photo-1610474665420-a6813295b9cb?auto=format&fit=crop&w=600&q=80"  // Fumaça/Gelo Seco
         };
-        
-        document.getElementById("marcador-1").addEventListener("markerLost", limparMensagem);
-        document.getElementById("marcador-2").addEventListener("markerLost", limparMensagem);
-        document.getElementById("marcador-3").addEventListener("markerLost", limparMensagem);
+
+        function iniciarCamera() {
+            // Configurações nativas do scanner de alta performance
+            const html5QrcodeScanner = new Html5Qrcode("leitor-camera");
+            
+            const config = { 
+                fps: 25, // Quadros por segundo altos para leitura instantânea
+                qrbox: (width, height) => {
+                    return { width: width * 0.7, height: height * 0.5 };
+                },
+                aspectRatio: window.innerWidth / window.innerHeight
+            };
+
+            // Dispara o fluxo de vídeo usando a câmera traseira padrão do dispositivo
+            html5QrcodeScanner.start(
+                { facingMode: "environment" }, 
+                config,
+                aoDetectarCodigo,
+                aoClarearFeedback
+            )
+            .then(() => {
+                caixaTexto.innerText = "Câmera ativada! Enquadre um QR Code para ver o fenômeno.";
+            })
+            .catch((err) => {
+                caixaTexto.innerText = "Erro: Vá em Ajustes > Safari > Câmera e permita o acesso.";
+                console.error(err);
+            });
+        }
+
+        function aoDetectarCodigo(decodedText) {
+            // Se o código lido fizer parte do experimento
+            if (bancoImagens[decodedText]) {
+                
+                // Cancela o timer de sumir com a imagem se o aluno continuar apontando
+                if (timeoutLimpar) clearTimeout(timeoutLimpar);
+
+                // Evita processamento repetido se for o mesmo código
+                if (ultimoCodigoLeitura !== decodedText) {
+                    ultimoCodigoLeitura = decodedText;
+                    
+                    // Aplica a imagem correspondente
+                    imagemMateria.src = bancoImagens[decodedText];
+                    containerRA.style.display = "block";
+
+                    // Altera os textos pedagógicos sem revelar o nome da transformação
+                    if (decodedText === "materia_01") {
+                        caixaTexto.innerText = "Fenômeno 01: O que ocorre com a água sob aquecimento constante?";
+                    } else if (decodedText === "materia_02") {
+                        caixaTexto.innerText = "Fenômeno 02: Analise a modificação estrutural desse cubo sólido.";
+                    } else if (decodedText === "materia_03") {
+                        caixaTexto.innerText = "Fenômeno 03: Observe a liberação gasosa direta. O composto se liquefez?";
+                    }
+                }
+
+                // Se o aluno afastar a câmera do código por mais de 4 segundos, remove a projeção
+                timeoutLimpar = setTimeout(() => {
+                    containerRA.style.display = "none";
+                    ultimoCodigoLeitura = null;
+                    caixaTexto.innerText = "Enquadre outro QR Code para analisar o próximo fenômeno.";
+                }, 4000);
+            }
+        }
+
+        function aoClarearFeedback() {
+            // Função interna necessária para o fluxo estável da biblioteca
+        }
+
+        // Garante a execução assim que o DOM carregar totalmente
+        document.addEventListener("DOMContentLoaded", iniciarCamera);
     </script>
 </body>
 </html>
