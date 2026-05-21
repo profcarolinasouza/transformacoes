@@ -4,16 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Laboratório de Ciências - Realidade Aumentada</title>
-
+    
     <!-- Biblioteca leve e ultra otimizada para leitura de códigos no iPhone/Android -->
     <script src="https://unpkg.com/html5-qrcode"></script>
 
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #000; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-
+        
         /* Câmera real ocupando a tela inteira */
         #leitor-camera { width: 100vw; height: 100vh; object-fit: cover; }
-
+        
         /* Interface de orientação para o estudante */
         .ui-aluno {
             position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
@@ -62,22 +62,21 @@
         const caixaTexto = document.getElementById("instrucoes");
         const containerRA = document.getElementById("container-ra");
         const imagemMateria = document.getElementById("imagem-materia");
-
+        
         let ultimoCodigoLeitura = null;
         let timeoutLimpar = null;
 
         // Mapeamento prático das imagens (Links HD estáveis do Unsplash)
         const bancoImagens = {
-          
             "materia_01": "https://thumbs.dreamstime.com/b/chaleira-de-ebuli%C3%A7%C3%A3o-41141046.jpg", // Chaleira fervendo
-            "materia_02": "https://img.magnific.com/vetores-gratis/um-cubo-de-gelo-derretendo-no-fundo-branco_1308-111488.jpg?semt=ais_hybrid&w=740&q=80", // Gelo derretendo
+            "materia_02": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTJtRxkoearbntF6-ND-zN9MfQsVProsYD_RQ&s", // Gelo derretendo
             "materia_03": "https://bartenderstore.com.br/wp-content/uploads/2024/08/experiment-with-dry-ice-in-a-glass-on-a-dark-backg-2023-11-27-05-06-26-utc-scaled.jpg"  // Fumaça/Gelo Seco
         };
 
         function iniciarCamera() {
             // Configurações nativas do scanner de alta performance
             const html5QrcodeScanner = new Html5Qrcode("leitor-camera");
-
+            
             const config = { 
                 fps: 25, // Quadros por segundo altos para leitura instantânea
                 qrbox: (width, height) => {
@@ -105,27 +104,24 @@
         function aoDetectarCodigo(decodedText) {
             // Se o código lido fizer parte do experimento
             if (bancoImagens[decodedText]) {
-
+                
                 // Cancela o timer de sumir com a imagem se o aluno continuar apontando
                 if (timeoutLimpar) clearTimeout(timeoutLimpar);
 
                 // Evita processamento repetido se for o mesmo código
                 if (ultimoCodigoLeitura !== decodedText) {
                     ultimoCodigoLeitura = decodedText;
-
+                    
                     // Aplica a imagem correspondente
                     imagemMateria.src = bancoImagens[decodedText];
                     containerRA.style.display = "block";
 
                     // Altera os textos pedagógicos sem revelar o nome da transformação
                     if (decodedText === "materia_01") {
-                        caixaTexto.innerText = "Fenômeno 01: O que ocorre com a água sob aquecimento constante?";
                         caixaTexto.innerText = "Fenômeno 01";
                     } else if (decodedText === "materia_02") {
-                        caixaTexto.innerText = "Fenômeno 02: Analise a modificação estrutural desse cubo sólido.";
                         caixaTexto.innerText = "Fenômeno 02";
                     } else if (decodedText === "materia_03") {
-                        caixaTexto.innerText = "Fenômeno 03: Observe a liberação gasosa direta. O composto se liquefez?";
                         caixaTexto.innerText = "Fenômeno 03";
                     }
                 }
