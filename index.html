@@ -3,144 +3,370 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Laboratório de Ciências - Realidade Aumentada</title>
+    <title>Laboratório de Física RA - Movimento Retilíneo Uniforme</title>
     
-    <!-- Biblioteca leve e ultra otimizada para leitura de códigos no iPhone/Android -->
-    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
 
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #000; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        /* Tela de Instrução Inicial (Calibração do Chão) */
+        #instrucao-inicial {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 15, 30, 0.9);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            z-index: 100;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #instrucao-inicial h2 { color: #00f3ff; margin-bottom: 10px; }
+        #instrucao-inicial p { max-width: 400px; font-size: 16px; line-height: 1.5; color: #ccdedf; }
         
-        /* Câmera real ocupando a tela inteira */
-        #leitor-camera { width: 100vw; height: 100vh; object-fit: cover; }
-        
-        /* Interface de orientação para o estudante */
-        .ui-aluno {
-            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
-            z-index: 10; background: rgba(0, 0, 0, 0.85); color: #fff;
-            padding: 15px 25px; border-radius: 30px; text-align: center;
-            font-size: 15px; width: 85%; max-width: 450px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.4); pointer-events: none;
-            border: 1px solid rgba(255,255,255,0.1); transition: all 0.3s ease;
+        #btn-entendido {
+            margin-top: 25px;
+            padding: 12px 30px;
+            background: #00f3ff;
+            color: #0a0f1e;
+            border: none;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            text-transform: uppercase;
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.5);
         }
 
-        /* Camada que exibe a imagem sobreposta (Efeito RA) */
-        #container-ra {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            z-index: 5; pointer-events: none; display: none; text-align: center; width: 80%; max-width: 400px;
+        /* Interface do Usuário (UI) 2D Superior - Cronômetro */
+        #painel-superior {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(10, 15, 30, 0.85);
+            border: 2px solid #00f3ff;
+            border-radius: 12px;
+            padding: 10px 30px;
+            text-align: center;
+            z-index: 10;
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.4);
         }
 
-        #imagem-materia {
-            width: 100%; height: auto; border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.7);
-            border: 3px solid #fff;
-            animation: flutuar 3000ms ease-in-out infinite alternate;
+        #label-cronometro {
+            color: #88a0c0;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 2px;
         }
 
-        @keyframes flutuar {
-            from { transform: translateY(0px); }
-            to { transform: translateY(-15px); }
+        #cronometro {
+            color: #00f3ff;
+            font-size: 38px;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.7);
+        }
+
+        /* Interface do Usuário (UI) 2D Inferior - Botões de Comando */
+        #painel-inferior {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            z-index: 10;
+            width: 90%;
+            max-width: 400px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 15px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+
+        #btn-iniciar {
+            background: linear-gradient(135deg, #00b4db, #0083b0);
+            color: white;
+            border: 1px solid #00f3ff;
+        }
+
+        #btn-iniciar:active { transform: scale(0.95); }
+
+        #btn-resetar {
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            color: #e0e0e0;
+            border: 1px solid #7f8c8d;
+        }
+
+        #btn-resetar:active { transform: scale(0.95); }
+
+        /* Letreiro de Avisos Pedagógicos na Tela */
+        #alerta-pedagogico {
+            position: absolute;
+            top: 115px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 184, 0, 0.95);
+            color: #0a0f1e;
+            padding: 8px 20px;
+            font-weight: bold;
+            border-radius: 20px;
+            font-size: 13px;
+            display: none;
+            z-index: 10;
+            box-shadow: 0 0 15px rgba(255, 184, 0, 0.5);
+            animation: piscar 0.3s infinite alternate;
+        }
+
+        @keyframes piscar {
+            from { opacity: 1; }
+            to { opacity: 0.6; }
         }
     </style>
 </head>
 <body>
 
-    <!-- Visualizador de Vídeo Nativo -->
-    <div id="leitor-camera"></div>
-
-    <!-- Projeção da Imagem do Fenômeno -->
-    <div id="container-ra">
-        <img id="imagem-materia" src="" alt="Fenômeno Químico">
+    <div id="instrucao-inicial">
+        <h2>Laboratório de Física RA</h2>
+        <p>Para visualizar a pista corretamente:<br><b>Aponte a câmera traseira para o chão</b> ou para uma mesa longa e lisa, mantenha o aparelho firme e clique abaixo.</p>
+        <button id="btn-entendido">Iniciar Experimento</button>
     </div>
 
-    <!-- Caixa de Texto Dinâmica -->
-    <div id="instrucoes" class="ui-aluno">
-        Aguardando permissão da câmera...
+    <div id="painel-superior">
+        <div id="label-cronometro">Tempo de Deslocamento</div>
+        <div id="cronometro">00:00</div>
     </div>
+
+    <div id="alerta-pedagogico">MARCAÇÃO ALCANÇADA! REGISTRE O TEMPO</div>
+
+    <div id="painel-inferior">
+        <button id="btn-iniciar" class="btn">Iniciar Fuga</button>
+        <button id="btn-resetar" class="btn">Resetar</button>
+    </div>
+
+    <a-scene embedded arjs="sourceType: webcam; videoParameters: { facingMode: 'environment' }; debugUIEnabled: false;">
+        
+        <a-entity light="type: ambient; color: #ffffff; intensity: 0.8"></a-entity>
+        <a-entity light="type: directional; intensity: 0.5" position="1 3 1"></a-entity>
+
+        <a-entity id="laboratorio-mru" position="0 -1.0 -2.5" rotation="0 0 0">
+            
+            <a-box id="pista" 
+                   position="0 -0.01 -0.75" 
+                   width="0.3" height="0.02" depth="1.5" 
+                   material="color: #00f3ff; opacity: 0.3; transparent: true; shader: flat;">
+            </a-box>
+
+            <a-cylinder position="0 0 -0.75" radius="0.006" height="1.5" rotation="90 0 0" material="color: #00f3ff; shader: flat;"></a-cylinder>
+
+            <a-entity id="marcador-05" position="0 0 -0.5">
+                <a-cylinder radius="0.05" height="0.01" material="color: #00f3ff; opacity: 0.8; shader: flat;"></a-cylinder>
+                <a-text value="0.5m" position="0.12 0.05 0" scale="0.35 0.35 0.35" align="center" color="#00f3ff"></a-text>
+                <a-text value="Trava em:\n02:50s" position="0 0.25 0" scale="0.25 0.25 0.25" align="center" color="#ffffff" bgcolor="#0a0f1e"></a-text>
+            </a-entity>
+
+            <a-entity id="marcador-10" position="0 0 -1.0">
+                <a-cylinder radius="0.05" height="0.01" material="color: #00f3ff; opacity: 0.8; shader: flat;"></a-cylinder>
+                <a-text value="1.0m" position="0.12 0.05 0" scale="0.35 0.35 0.35" align="center" color="#00f3ff"></a-text>
+                <a-text value="Trava em:\n05:00s" position="0 0.25 0" scale="0.25 0.25 0.25" align="center" color="#ffffff"></a-text>
+            </a-entity>
+
+            <a-entity id="marcador-15" position="0 0 -1.5">
+                <a-box width="0.35" height="0.01" depth="0.04" material="color: #ff0055; shader: flat;"></a-box>
+                <a-text value="1.5m" position="0.12 0.05 0" scale="0.35 0.35 0.35" align="center" color="#ff0055"></a-text>
+                <a-text value="Chegada:\n07:50s" position="0 0.25 0" scale="0.25 0.25 0.25" align="center" color="#ff0055"></a-text>
+            </a-entity>
+
+            <a-entity id="rover" position="0 0.05 0">
+                <a-box width="0.12" height="0.06" depth="0.15" material="color: #ffffff; metalness: 0.7; roughness: 0.2;"></a-box>
+                <a-box width="0.09" height="0.04" depth="0.07" position="0 0.03 -0.04" material="color: #00f3ff; opacity: 0.7; transparent: true; shader: flat;"></a-box>
+                <a-cylinder radius="0.025" height="0.02" rotation="0 0 90" position="-0.07 -0.01 0.04" material="color: #151515;"></a-cylinder>
+                <a-cylinder radius="0.025" height="0.02" rotation="0 0 90" position="0.07 -0.01 0.04" material="color: #151515;"></a-cylinder>
+                <a-cylinder radius="0.025" height="0.02" rotation="0 0 90" position="-0.07 -0.01 -0.04" material="color: #151515;"></a-cylinder>
+                <a-cylinder radius="0.025" height="0.02" rotation="0 0 90" position="0.07 -0.01 -0.04" material="color: #151515;"></a-cylinder>
+                <a-cone radius-bottom="0.02" radius-top="0" height="0.05" rotation="-90 0 0" position="0 0 0.08" material="color: #ff5500; shader: flat;"></a-cone>
+            </a-entity>
+
+        </a-entity>
+
+        <a-entity camera position="0 0 0"></a-entity>
+    </a-scene>
 
     <script>
-        const caixaTexto = document.getElementById("instrucoes");
-        const containerRA = document.getElementById("container-ra");
-        const imagemMateria = document.getElementById("imagem-materia");
+        // Elementos de Controle do Fluxo de Entrada
+        document.getElementById('btn-entendido').addEventListener('click', () => {
+            document.getElementById('instrucao-inicial').style.display = 'none';
+        });
+
+        const displayCronometro = document.getElementById('cronometro');
+        const btnIniciar = document.getElementById('btn-iniciar');
+        const btnResetar = document.getElementById('btn-resetar');
+        const painelAlerta = document.getElementById('alerta-pedagogico');
+
+        const elementRover = document.getElementById('rover');
+        const m05 = document.getElementById('marcador-05');
+        const m10 = document.getElementById('marcador-10');
+        const m15 = document.getElementById('marcador-15');
+
+        // Constantes Operacionais Ocultas (Garantem o MRU Perfeito)
+        const VELOCIDADE = 0.2; 
+        const LIMITE_PISTA = -1.5; 
+        const TEMPO_PAUSA_MS = 1200; 
+
+        // Estados Dinâmicos
+        let tempoDecorridoMS = 0;
+        let posicaoZ = 0; 
+        let emMovimento = false;
+        let emPausaPedagogica = false;
         
-        let ultimoCodigoLeitura = null;
-        let timeoutLimpar = null;
+        let checkpoints = [
+            { distancia: -0.5, alcancado: false, elemento3D: m05 },
+            { distancia: -1.0, alcancado: false, elemento3D: m10 },
+            { distancia: -1.5, alcancado: false, elemento3D: m15 }
+        ];
 
-        // Mapeamento prático das imagens (Links HD estáveis do Unsplash)
-        const bancoImagens = {
-            "materia_01": "https://thumbs.dreamstime.com/b/chaleira-de-ebuli%C3%A7%C3%A3o-41141046.jpg", // Chaleira fervendo
-            "materia_02": "https://img.magnific.com/vetores-gratis/um-cubo-de-gelo-derretendo-no-fundo-branco_1308-111488.jpg?semt=ais_hybrid&w=740&q=80", // Gelo derretendo
-            "materia_03": "https://bartenderstore.com.br/wp-content/uploads/2024/08/experiment-with-dry-ice-in-a-glass-on-a-dark-backg-2023-11-27-05-06-26-utc-scaled.jpg"  // Fumaça/Gelo Seco
-        };
+        let loopFisicaInterval = null;
+        let ultimoTimestamp = 0;
 
-        function iniciarCamera() {
-            // Configurações nativas do scanner de alta performance
-            const html5QrcodeScanner = new Html5Qrcode("leitor-camera");
-            
-            const config = { 
-                fps: 25, // Quadros por segundo altos para leitura instantânea
-                qrbox: (width, height) => {
-                    return { width: width * 0.7, height: height * 0.5 };
-                },
-                aspectRatio: window.innerWidth / window.innerHeight
-            };
+        function atualizarFisica() {
+            if (!emMovimento || emPausaPedagogica) return;
 
-            // Dispara o fluxo de vídeo usando a câmera traseira padrão do dispositivo
-            html5QrcodeScanner.start(
-                { facingMode: "environment" }, 
-                config,
-                aoDetectarCodigo,
-                aoClarearFeedback
-            )
-            .then(() => {
-                caixaTexto.innerText = "Câmera ativada! Enquadre um QR Code para ver o fenômeno.";
-            })
-            .catch((err) => {
-                caixaTexto.innerText = "Erro: Vá em Ajustes > Safari > Câmera e permita o acesso.";
-                console.error(err);
-            });
+            const agora = performance.now();
+            const deltaTime = (agora - ultimoTimestamp) / 1000; 
+            ultimoTimestamp = agora;
+
+            tempoDecorridoMS += deltaTime * 1000;
+            posicaoZ -= VELOCIDADE * deltaTime; // Desloca para frente no eixo Z negativo
+
+            // Trava Final Física (Linha de Chegada em 1.5 metros)
+            if (posicaoZ <= LIMITE_PISTA) {
+                posicaoZ = LIMITE_PISTA;
+                elementRover.setAttribute('position', `0 0.05 ${posicaoZ}`);
+                finalizarExperimento();
+                return;
+            }
+
+            elementRover.setAttribute('position', `0 0.05 ${posicaoZ}`);
+            atualizarDisplayUI();
+            verificarPontosDeControle();
         }
 
-        function aoDetectarCodigo(decodedText) {
-            // Se o código lido fizer parte do experimento
-            if (bancoImagens[decodedText]) {
+        function verificarPontosDeControle() {
+            for (let i = 0; i < checkpoints.length; i++) {
+                let cp = checkpoints[i];
                 
-                // Cancela o timer de sumir com a imagem se o aluno continuar apontando
-                if (timeoutLimpar) clearTimeout(timeoutLimpar);
+                // Trata o ponto de parada final separadamente
+                if (cp.distancia === -1.5) continue; 
 
-                // Evita processamento repetido se for o mesmo código
-                if (ultimoCodigoLeitura !== decodedText) {
-                    ultimoCodigoLeitura = decodedText;
+                if (posicaoZ <= cp.distancia && !cp.alcancado) {
+                    cp.alcancado = true;
+                    posicaoZ = cp.distancia; // Encaixe preciso na marcação
+                    elementRover.setAttribute('position', `0 0.05 ${posicaoZ}`);
                     
-                    // Aplica a imagem correspondente
-                    imagemMateria.src = bancoImagens[decodedText];
-                    containerRA.style.display = "block";
-
-                    // Altera os textos pedagógicos sem revelar o nome da transformação
-                    if (decodedText === "materia_01") {
-                        caixaTexto.innerText = "Fenômeno 01";
-                    } else if (decodedText === "materia_02") {
-                        caixaTexto.innerText = "Fenômeno 02";
-                    } else if (decodedText === "materia_03") {
-                        caixaTexto.innerText = "Fenômeno 03";
-                    }
+                    dispararPausaPedagogica(cp);
+                    break;
                 }
-
-                // Se o aluno afastar a câmera do código por mais de 4 segundos, remove a projeção
-                timeoutLimpar = setTimeout(() => {
-                    containerRA.style.display = "none";
-                    ultimoCodigoLeitura = null;
-                    caixaTexto.innerText = "Enquadre outro QR Code para analisar o próximo fenômeno.";
-                }, 4000);
             }
         }
 
-        function aoClarearFeedback() {
-            // Função interna necessária para o fluxo estável da biblioteca
+        function dispararPausaPedagogica(checkpoint) {
+            emPausaPedagogica = true;
+            painelAlerta.style.display = 'block';
+            
+            // Transforma o marcador interceptado em Amarelo Alerta
+            checkpoint.elemento3D.querySelector('a-cylinder').setAttribute('material', 'color: #ffb800; shader: flat;');
+            checkpoint.elemento3D.querySelector('a-text').setAttribute('color', '#ffb800');
+
+            setTimeout(() => {
+                painelAlerta.style.display = 'none';
+                checkpoint.elemento3D.querySelector('a-cylinder').setAttribute('material', 'color: #00f3ff; opacity: 0.8; shader: flat;');
+                checkpoint.elemento3D.querySelector('a-text').setAttribute('color', '#00f3ff');
+                
+                ultimoTimestamp = performance.now();
+                emPausaPedagogica = false;
+            }, TEMPO_PAUSA_MS);
         }
 
-        // Garante a execução assim que o DOM carregar totalmente
-        document.addEventListener("DOMContentLoaded", iniciarCamera);
+        function finalizarExperimento() {
+            emMovimento = false;
+            clearInterval(loopFisicaInterval);
+            loopFisicaInterval = null;
+            
+            // Força a exibição cravada do último ponto na interface gráfica
+            tempoDecorridoMS = 7500; 
+            atualizarDisplayUI();
+
+            m15.querySelector('a-box').setAttribute('material', 'color: #ffb800; shader: flat;');
+            m15.querySelectorAll('a-text').forEach(t => t.setAttribute('color', '#ffb800'));
+        }
+
+        function atualizarDisplayUI() {
+            let totalSegundos = Math.floor(tempoDecorridoMS / 1000);
+            let milissegundos = Math.floor((tempoDecorridoMS % 1000) / 10); 
+
+            let strSegundos = totalSegundos < 10 ? "0" + totalSegundos : totalSegundos;
+            let strMili = milissegundos < 10 ? "0" + milissegundos : milissegundos;
+
+            displayCronometro.innerText = `${strSegundos}:${strMili}`;
+        }
+
+        // Eventos de Acionamento dos Botões da UI
+        btnIniciar.addEventListener('click', () => {
+            if (!emMovimento && !emPausaPedagogica && posicaoZ > LIMITE_PISTA) {
+                emMovimento = true;
+                ultimoTimestamp = performance.now();
+                loopFisicaInterval = setInterval(atualizarFisica, 16); // Roda a ~60fps estáveis
+            }
+        });
+
+        btnResetar.addEventListener('click', () => {
+            if (loopFisicaInterval) {
+                clearInterval(loopFisicaInterval);
+                loopFisicaInterval = null;
+            }
+
+            tempoDecorridoMS = 0;
+            posicaoZ = 0;
+            emMovimento = false;
+            emPausaPedagogica = false;
+
+            elementRover.setAttribute('position', '0 0.05 0');
+            displayCronometro.innerText = "00:00";
+            painelAlerta.style.display = 'none';
+
+            // Restaura o layout visual ciano de fábrica
+            checkpoints.forEach(cp => cp.alcancado = false);
+            m05.querySelector('a-cylinder').setAttribute('material', 'color: #00f3ff; opacity: 0.8; shader: flat;');
+            m05.querySelector('a-text').setAttribute('color', '#00f3ff');
+            
+            m10.querySelector('a-cylinder').setAttribute('material', 'color: #00f3ff; opacity: 0.8; shader: flat;');
+            m10.querySelector('a-text').setAttribute('color', '#00f3ff');
+            
+            m15.querySelector('a-box').setAttribute('material', 'color: #ff0055; shader: flat;');
+            m15.querySelectorAll('a-text').forEach(t => t.setAttribute('color', '#ff0055'));
+        });
     </script>
 </body>
 </html>
