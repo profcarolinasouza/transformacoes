@@ -3,39 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebAR - Transformações da Matéria</title>
+    <title>WebAR - Filtros das Transformações da Matéria</title>
     
-    <!-- Bibliotecas essenciais: Renderizador 3D e Visão Computacional -->
+    <!-- Three.js para renderização 3D -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0"></script>
     
+    <!-- Bibliotecas de Visão Computacional do MediaPipe (Versões estáveis em CDN aberta) -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
     <style>
-        * { box-sizing: border-box; }
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #000; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #000; font-family: sans-serif; }
         
-        /* O canvas 3D sobrepõe tudo */
-        #canvas-ar { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 2; }
+        /* Câmera real visível ao fundo */
+        #webcam { 
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; 
+            object-fit: cover; transform: scaleX(-1); z-index: 1; 
+        }
         
-        /* O vídeo da webcam fica escondido visualmente, mas serve de textura/rastreamento */
-        #webcam { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+        /* Canvas 3D transparente sobreposto à câmera */
+        #canvas-ar { 
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 2; 
+            pointer-events: none; 
+        }
         
-        /* Interface de instruções para o estudante */
         .ui-feedback { 
-            position: absolute; 
-            bottom: 30px; 
-            left: 50%; 
-            transform: translateX(-50%); 
-            z-index: 10; 
-            background: rgba(20, 20, 20, 0.85); 
-            color: #fff; 
-            padding: 15px 25px; 
-            border-radius: 30px; 
-            text-align: center; 
-            font-size: 16px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            pointer-events: none;
-            max-width: 90%;
-            border: 1px solid rgba(255,255,255,0.1);
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); 
+            z-index: 10; background: rgba(0, 0, 0, 0.8); color: #fff; 
+            padding: 12px 25px; border-radius: 30px; text-align: center; font-size: 16px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5); width: 85%; max-width: 500px;
         }
     </style>
 </head>
@@ -43,247 +40,173 @@
 
     <video id="webcam" autoplay playsinline></video>
     <canvas id="canvas-ar"></canvas>
-    <div id="ui" class="ui-feedback">Carregando câmera e inteligência artificial...</div>
+    <div id="ui" class="ui-feedback">Permita o acesso à câmera para começar...</div>
 
-    <script type="module">
-        import { FaceLandmarker, HandLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm/vision_bundle.mjs";
-
-        let faceLandmarker, handLandmarker;
-        let video = document.getElementById("webcam");
-        let canvas = document.getElementById("canvas-ar");
-        let uiText = document.getElementById("ui");
+    <script>
+        const video = document.getElementById("webcam");
+        const canvas = document.getElementById("canvas-ar");
+        const uiText = document.getElementById("ui");
         
-        // Variáveis do Three.js
-        let scene, camera, renderer, videoTexture, videoMesh;
-        
-        // Objetos 3D e Partículas para as transformações
+        let scene, camera, renderer;
         let chaleira, gelo, geloSeco;
-        let sistemaVapor, sistemaGotas, sistemaFumaca;
+        let larguraVideo = 640, alturaVideo = 480;
 
-        async function inicializar() {
-            try {
-                // 1. Liga a câmera do dispositivo
-                await ligarWebcam();
-                
-                // 2. Configura o cenário 3D do Three.js
-                configurarCenaria3D();
-                
-                // 3. Carrega os modelos de IA do MediaPipe
-                uiText.innerText = "Inicializando rastreadores de corpo...";
-                await carregarModelosIA();
-                
-                // 4. Cria os objetos químicos virtuais
-                criarElementosVirtuais();
-                
-                uiText.innerText = "Tudo pronto! Abra a boca ou uma das mãos.";
-                
-                // 5. Inicia o loop de renderização e detecção
-                loopAR();
-            } catch (erro) {
-                console.error(erro);
-                uiText.innerText = "Erro ao acessar a câmera ou carregar componentes de RA.";
-            }
-        }
-
-        async function ligarWebcam() {
-            const restricoes = {
-                video: {
-                    facingMode: "user", // Força câmera frontal (modo selfie)
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                },
-                audio: false
-            };
-
-            const stream = await navigator.mediaDevices.getUserMedia(restricoes);
-            video.srcObject = stream;
-            
-            // Aguarda o vídeo carregar os metadados para sabermos o tamanho real
-            return new Promise((resolve) => {
-                video.onloadedmetadata = () => {
-                    video.play();
-                    resolve();
-                };
-            });
-        }
-
-        function configurarCenaria3D() {
-            // Cria a cena e a câmera com perspectiva
+        // 1. Inicializa o ambiente 3D do Three.js com fundo transparente
+        function initThree() {
             scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+            
+            // Câmera adaptada para visualização de Realidade Aumentada
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
             camera.position.z = 5;
 
-            // Configura o renderizador para usar o canvas correto
-            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setPixelRatio(window.devicePixelRatio);
 
-            // CRUCIAL PARA RA: Transforma o vídeo da webcam em uma textura viva no fundo da cena
-            videoTexture = new THREE.VideoTexture(video);
-            videoTexture.minFilter = THREE.LinearFilter;
-            
-            // Cria um plano gigante no fundo para projetar a imagem da câmera
-            const fundoGeometria = new THREE.PlaneGeometry(16, 9);
-            const fundoMaterial = new THREE.MeshBasicMaterial({ map: videoTexture });
-            videoMesh = new THREE.Mesh(fundoGeometria, fundoMaterial);
-            videoMesh.position.z = -5; // Afasta o fundo para os objetos ficarem na frente
-            
-            // Ajusta a escala do fundo para cobrir a tela (efeito "cover")
-            ajustarProporcaoFundo();
-            scene.add(videoMesh);
-
-            // Adiciona luzes básicas para podermos ver os objetos 3D
-            const luzAmbiente = new THREE.AmbientLight(0xffffff, 0.7);
-            const luzDirecional = new THREE.DirectionalLight(0xffffff, 0.8);
+            // Adiciona iluminação para os objetos virtuais
+            const luzAmbiente = new THREE.AmbientLight(0xffffff, 0.8);
+            const luzDirecional = new THREE.DirectionalLight(0xffffff, 0.6);
             luzDirecional.position.set(0, 5, 5);
             scene.add(luzAmbiente, luzDirecional);
 
-            // Ouve redimensionamentos de tela (ajuste de rotação do celular)
+            criarObjetosMateria();
+
             window.addEventListener('resize', onWindowResize);
         }
 
-        function ajustarProporcaoFundo() {
-            const proporcaoVideo = video.videoWidth / video.videoHeight;
-            const proporcaoTela = window.innerWidth / window.innerHeight;
-            
-            if (proporcaoTela > proporcaoVideo) {
-                videoMesh.scale.set(proporcaoTela * 1.2, proporcaoTela / proporcaoVideo * 1.2, 1);
-            } else {
-                videoMesh.scale.set(proporcaoVideo * 1.2, 1.2, 1);
-            }
-        }
-
-        async function carregarModelosIA() {
-            const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm");
-            
-            faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
-                baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task" },
-                outputFaceBlendshapes: true,
-                runningMode: "VIDEO"
-            });
-
-            handLandmarker = await HandLandmarker.createFromOptions(vision, {
-                baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task" },
-                numHands: 2,
-                runningMode: "VIDEO"
-            });
-        }
-
-        function criarElementosVirtuais() {
-            // Criando geometrias simples para representar os objetos (Chaleira, Gelo, Copo)
-            // Em produção, você substituiria por modelos .GLTF/.GLB reais
-            
-            // Mão Direita: Chaleira (Simulada por um bule/cilindro metálico)
-            const gChaleira = new THREE.CylinderGeometry(0.3, 0.4, 0.6, 16);
-            const mChaleira = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.8, roughness: 0.2 });
+        // 2. Cria os polígonos que representam os experimentos químicos
+        function criarObjetosMateria() {
+            // Mão Direita: Chaleira (Ebulição)
+            const gChaleira = new THREE.CylinderGeometry(0.2, 0.3, 0.4, 16);
+            const mChaleira = new THREE.MeshStandardMaterial({ color: 0x99ff99, metalness: 0.5, roughness: 0.3 });
             chaleira = new THREE.Mesh(gChaleira, mChaleira);
             chaleira.visible = false;
             scene.add(chaleira);
 
-            // Boca: Pedras de Gelo (Cubos translúcidos)
+            // Boca: Cubo de Gelo (Fusão)
             const gGelo = new THREE.BoxGeometry(0.15, 0.15, 0.15);
-            const mGelo = new THREE.MeshStandardMaterial({ color: 0xddeeff, transparent: true, opacity: 0.7, roughness: 0.1 });
+            const mGelo = new THREE.MeshStandardMaterial({ color: 0x3399ff, transparent: true, opacity: 0.6 });
             gelo = new THREE.Mesh(gGelo, mGelo);
             gelo.visible = false;
             scene.add(gelo);
 
-            // Mão Esquerda: Copo com Gelo Seco
-            const gCopo = new THREE.CylinderGeometry(0.25, 0.18, 0.5, 16);
-            const mCopo = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.4 });
+            // Mão Esquerda: Copo com fumaça (Sublimação)
+            const gCopo = new THREE.CylinderGeometry(0.18, 0.12, 0.35, 16);
+            const mCopo = new THREE.MeshStandardMaterial({ color: 0xff9999, transparent: true, opacity: 0.5 });
             geloSeco = new THREE.Mesh(gCopo, mCopo);
             geloSeco.visible = false;
             scene.add(geloSeco);
-            
-            // Aqui entrariam os códigos dos sistemas de partículas (fumaça e vapor)
         }
 
-        function loopAR() {
-            // Captura o tempo atual do vídeo para sincronizar a IA
-            let tempoAtual = performance.now();
-            
-            // Executa as detecções faciais e manuais no frame atual do vídeo
-            let resultadosFace = faceLandmarker.detectForVideo(video, tempoAtual);
-            let resultadosMao = handLandmarker.detectForVideo(video, tempoAtual);
-            
-            // Processa as interações e liga/desliga os objetos 3D
-            processarGatilhos(resultadosFace, resultadosMao);
-            
-            // Renderiza a cena combinada (Vídeo de fundo + Objetos 3D na frente)
-            renderer.render(scene, camera);
-            
-            // Mantém o ciclo infinito por frame de animação
-            requestAnimationFrame(loopAR);
+        // 3. Configura e liga a câmera usando a API nativa do MediaPipe
+        function initCamera() {
+            const cameraUtils = new Camera(video, {
+                onFrame: async () => {
+                    // Envia o frame atual da câmera para os motores de IA processarem
+                    await faceMesh.send({ image: video });
+                    await hands.send({ image: video });
+                },
+                width: 640,
+                height: 480
+            });
+            cameraUtils.start()
+                .then(() => uiText.innerText = "Carregando Inteligência Artificial...")
+                .catch(err => uiText.innerText = "Erro: Ative a câmera nas configurações do seu navegador.");
         }
 
-        function processarGatilhos(faceResult, handResult) {
-            let acaoDetectada = false;
+        // 4. Configuração do Rastreamento Facial (Boca aberta)
+        const faceMesh = new FaceMesh({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+        });
+        
+        faceMesh.setOptions({
+            maxNumFaces: 1,
+            refineLandmarks: true,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
 
-            // Reset inicial de visibilidade
-            chaleira.visible = false;
+        faceMesh.onResults((results) => {
             gelo.visible = false;
-            geloSeco.visible = false;
-
-            // 1. Análise Facial: Detectar abertura da boca (Fusão)
-            if (faceResult?.faceBlendshapes?.[0]) {
-                const shapes = faceResult.faceBlendshapes[0].categories;
-                const jawOpen = shapes.find(c => c.categoryName === "jawOpen")?.score || 0;
+            
+            if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+                const landmarks = results.multiFaceLandmarks[0];
                 
-                if (jawOpen > 0.45) {
-                    // Posiciona o gelo próximo à região da boca usando coordenadas normais transformadas
-                    gelo.position.set(0, -0.2, 2); // Posição estática de exemplo perto do centro
+                // Pega os pontos do lábio superior (13) e inferior (14) para medir a abertura
+                const labioSuperior = landmarks[13];
+                const labioInferior = landmarks[14];
+                const distanciaBoca = Math.abs(labioSuperior.y - labioInferior.y);
+
+                if (distanciaBoca > 0.05) { // Boca Aberta
+                    // Converte a coordenada da boca para o espaço 3D do Three.js
+                    const x = -(landmarks[13].x - 0.5) * 4;
+                    const y = -(landmarks[13].y - 0.5) * 3;
+                    
+                    gelo.position.set(x, y, 2);
+                    gelo.rotation.y += 0.02;
                     gelo.visible = true;
-                    uiText.innerText = "FUSÃO: Sólido mudando para Líquido devido ao calor!";
-                    acaoDetectada = true;
+                    uiText.innerText = "FUSÃO: Pedras de gelo derretendo saindo da boca!";
                 }
             }
+            renderer.render(scene, camera);
+        });
 
-            // 2. Análise das Mãos: Identificar mão esquerda ou direita abertas
-            if (handResult?.landmarks && handResult.landmarks.length > 0) {
-                handResult.landmarks.forEach((marcasMao, index) => {
-                    const ladoMao = handResult.handedness[index][0].categoryName; // "Left" ou "Right"
-                    const aberta = checarMaoAberta(marcasMao);
+        // 5. Configuração do Rastreamento das Mãos (Direita e Esquerda)
+        const hands = new Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
 
-                    // Converte a coordenada 2D da IA para o espaço 3D do Three.js
-                    // (MediaPipe inverte o eixo X por padrão no modo selfie)
-                    const x3D = -(marcasMao[9].x - 0.5) * 5; 
-                    const y3D = -(marcasMao[9].y - 0.5) * 3.5;
+        hands.setOptions({
+            maxNumHands: 2,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
 
-                    if (aberta && ladoMao === "Right") {
-                        chaleira.position.set(x3D, y3D, 1.5);
-                        chaleira.visible = true;
-                        uiText.innerText = "EBULIÇÃO: Líquido virando Gás em alta temperatura!";
-                        acaoDetectada = true;
-                    } 
-                    else if (aberta && ladoMao === "Left") {
-                        geloSeco.position.set(x3D, y3D, 1.5);
-                        geloSeco.visible = true;
-                        uiText.innerText = "SUBLIMAÇÃO: CO₂ Sólido virando Gás diretamente!";
-                        acaoDetectada = true;
+        hands.onResults((results) => {
+            chaleira.visible = false;
+            geloSeco.visible = false;
+
+            if (results.multiHandLandmarks && results.multiHandedness) {
+                for (let i = 0; i < results.multiHandLandmarks.length; i++) {
+                    const landmarks = results.multiHandLandmarks[i];
+                    const labelMao = results.multiHandedness[i].label; // "Left" ou "Right"
+
+                    // Identifica se a mão está aberta (dedos esticados)
+                    const maoAberta = landmarks[8].y < landmarks[6].y && landmarks[12].y < landmarks[10].y;
+
+                    if (maoAberta) {
+                        // Converte as coordenadas da palma (ponto 9) para o Three.js
+                        const x = -(landmarks[9].x - 0.5) * 4.5;
+                        const y = -(landmarks[9].y - 0.5) * 3.5;
+
+                        // Como a imagem é espelhada na webcam, invertemos a lógica visual das mãos
+                        if (labelMao === "Left") { 
+                            chaleira.position.set(x, y, 2);
+                            chaleira.visible = true;
+                            uiText.innerText = "EBULIÇÃO: Água fervendo na chaleira (Mão Direita Real)";
+                        } else if (labelMao === "Right") {
+                            geloSeco.position.set(x, y, 2);
+                            geloSeco.visible = true;
+                            uiText.innerText = "SUBLIMAÇÃO: Fumaça de Gelo Seco no copo (Mão Esquerda Real)";
+                        }
                     }
-                });
+                }
             }
-
-            if (!acaoDetectada) {
-                uiText.innerText = "Interaja: Abra a boca, a mão esquerda ou a mão direita.";
-            }
-        }
-
-        function checarMaoAberta(landmarks) {
-            // Verifica se as pontas dos dedos indicador(8), médio(12) e anelar(16) estão acima de suas respectivas bases
-            return landmarks[8].y < landmarks[6].y && 
-                   landmarks[12].y < landmarks[10].y && 
-                   landmarks[16].y < landmarks[14].y;
-        }
+            renderer.render(scene, camera);
+        });
 
         function onWindowResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
-            ajustarProporcaoFundo();
         }
 
-        // Dá o pontapé inicial na aplicação
-        window.onload = inicializar;
+        // Executa tudo na ordem correta
+        window.onload = () => {
+            initThree();
+            initCamera();
+        };
     </script>
 </body>
 </html>
